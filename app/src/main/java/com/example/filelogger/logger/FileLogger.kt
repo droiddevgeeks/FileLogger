@@ -6,9 +6,11 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
@@ -27,8 +29,32 @@ class FileLogger(private val context: Context) : IFileLogsRepository {
     private var fileUri: Uri? = null
 
     override fun initLogger(fileName: String, headers: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            handleAboveAndroid10FileCreation(fileName, headers)
+        } else {
+            handleBelowAndroid10FileCreation(fileName, headers)
+        }
+    }
+
+    private fun handleAboveAndroid10FileCreation(fileName: String, headers: String) {
         findAndInitExistingFileUri(fileName)
         if (fileUri == null) initNewFileUri(fileName, headers)
+    }
+
+    private fun handleBelowAndroid10FileCreation(fileName: String, headers: String) {
+        val rootDir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            FOLDER_PATH
+        )
+        if (rootDir.exists().not()) rootDir.mkdirs()
+        val file = File(rootDir, "${fileName}.csv")
+        if (file.exists().not()) {
+            file.createNewFile()
+            fileUri = Uri.fromFile(file)
+            writeLog(headers)
+        } else {
+            fileUri = Uri.fromFile(file)
+        }
     }
 
     @SuppressLint("Range")
